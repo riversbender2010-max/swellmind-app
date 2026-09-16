@@ -191,9 +191,23 @@ export default function RankedTab({ date, onSpotSelect }: { date: string; onSpot
   useEffect(() => {
     setLoading(true)
     setError(null)
+    // Try /api/forecast first, fall back to /api/spots
     fetch(`/api/forecast?date=${date}`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+      .then(d => {
+        // Handle both response shapes
+        if (d.forecasts) {
+          setData(d)
+        } else if (d.spots) {
+          // /api/forecast is returning spots format — normalize it
+          const ranked = d.spots
+            .filter((s: any) => s.call !== 'gauge' && s.call !== 'killed' && s.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
+          const killed = d.spots.filter((s: any) => s.call === 'killed')
+          setData({ date: d.date, regime: ranked[0]?.regime_id || null, forecasts: ranked, killed })
+        }
+        setLoading(false)
+      })
       .catch(e => { setError(e.message); setLoading(false) })
   }, [date])
 
