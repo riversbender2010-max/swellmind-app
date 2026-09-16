@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ocean-deep: #0b1623;
+  --ocean-mid: #0f2035;
+  --ocean-card: #0d1a2a;
+  --glass: rgba(255,255,255,0.05);
+  --glass-border: rgba(255,255,255,0.08);
+  --text-bright: #f0f4f8;
+  --text-mid: #8fafc8;
+  --text-dim: #4a6a85;
+  --go: #22c55e;
+  --teal: #06b6d4;
+  --amber: #f59e0b;
+  --red: #ef4444;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--ocean-deep);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+.glass {
+  background: var(--glass);
+  border: 0.5px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.card-go    { border-left: 3px solid var(--go); }
+.card-amber { border-left: 3px solid var(--amber); }
+.card-dim   { border-left: 3px solid rgba(255,255,255,0.1); }
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  height: 76px;
+  background: rgba(11, 22, 35, 0.92);
+  border-top: 0.5px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px env(safe-area-inset-bottom, 12px);
+}
+
+.score-bar-fill {
+  height: 3px;
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pulse-go {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.pulse-go { animation: pulse-go 2s ease-in-out infinite; }
