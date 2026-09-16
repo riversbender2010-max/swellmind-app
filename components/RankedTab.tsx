@@ -277,13 +277,13 @@ export default function RankedTab({ date, onSpotSelect }: { date: string; onSpot
           </>
         )}
 
-        {/* Killed spots */}
-        {killed.length > 0 && (
+        {/* Killed spots — only show if they have a real reason */}
+        {killed.filter((s: any) => !s.gauge_only).length > 0 && (
           <>
             <div className="text-[10px] font-semibold uppercase tracking-widest px-1 mt-2" style={{ color: 'var(--text-dim)' }}>
               Not viable today
             </div>
-            {killed.map((s: any) => (
+            {killed.filter((s: any) => !s.gauge_only).map((s: any) => (
               <button
                 key={s.slug}
                 onClick={() => onSpotSelect(s.slug)}
