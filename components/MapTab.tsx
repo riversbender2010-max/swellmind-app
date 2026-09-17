@@ -1,174 +1,216 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-const LAT_MIN = 37.384, LAT_MAX = 38.300
-const LON_MIN = -123.015, LON_MAX = -122.413
-const W = 340, H = 500
+const SPOTS_STATIC = [
+  { slug: 'ocean_beach_north',  name: 'OB North',       lat: 37.778000, lon: -122.513000 },
+  { slug: 'ocean_beach_middle', name: 'OB Middle',       lat: 37.759900, lon: -122.511100 },
+  { slug: 'ocean_beach_south',  name: 'OB South',        lat: 37.735000, lon: -122.506000 },
+  { slug: 'fort_point',         name: 'Fort Point',      lat: 37.810000, lon: -122.477000 },
+  { slug: 'rodeo_beach',        name: 'Rodeo Beach',     lat: 37.832000, lon: -122.537000 },
+  { slug: 'bolinas_patch',      name: 'Bolinas Patch',   lat: 37.907500, lon: -122.684400 },
+  { slug: 'bolinas_channel',    name: 'Bolinas Channel', lat: 37.905000, lon: -122.687000 },
+  { slug: 'stinson',            name: 'Stinson Beach',   lat: 37.900000, lon: -122.643000 },
+  { slug: 'muir_beach',         name: 'Muir Beach',      lat: 37.860000, lon: -122.577000 },
+  { slug: 'rca',                name: 'RCA',             lat: 37.906000, lon: -122.735000 },
+  { slug: 'dillon_beach',       name: 'Dillon Beach',    lat: 38.250000, lon: -122.965000 },
+  { slug: 'point_reyes_beach',  name: 'Pt Reyes Beach',  lat: 38.050000, lon: -122.960000 },
+  { slug: 'drakes_bay',         name: 'Drakes Bay',      lat: 38.026000, lon: -122.960000 },
+  { slug: 'linda_mar',          name: 'Linda Mar',       lat: 37.598000, lon: -122.503000 },
+  { slug: 'rockaway',           name: 'Rockaway',        lat: 37.607000, lon: -122.494000 },
+  { slug: 'montara',            name: 'Montara',         lat: 37.552000, lon: -122.517000 },
+  { slug: 'princeton_jetty',    name: 'Princeton Jetty', lat: 37.499000, lon: -122.482000 },
+  { slug: 'dunes_francis',      name: 'Dunes/Francis',   lat: 37.464000, lon: -122.443000 },
+  { slug: 'mavericks',          name: 'Mavericks',       lat: 37.495000, lon: -122.500000 },
+]
 
-function toSVG(lat: number, lon: number) {
-  const x = ((lon - LON_MIN) / (LON_MAX - LON_MIN)) * W
-  const y = ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * H
-  return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }
-}
-
-function pinColor(call: string) {
+function callColor(call: string) {
   if (call === 'go')       return '#22c55e'
   if (call === 'consider') return '#f59e0b'
-  if (call === 'killed')   return '#334155'
-  if (call === 'gauge')    return '#1a3a5f'
-  return '#4a6a85'
-}
-
-function scoreColor(score: number) {
-  if (score >= 80) return '#22c55e'
-  if (score >= 60) return '#f59e0b'
-  return '#4a6a85'
+  if (call === 'killed')   return '#475569'
+  if (call === 'gauge')    return '#1e3a5f'
+  return '#475569'
 }
 
 export default function MapTab({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: string) => void }) {
-  const [spots, setSpots] = useState<any[]>([])
+  const mapRef = useRef<any>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([])
+  const [scores, setScores] = useState<Record<string, any>>({})
   const [selected, setSelected] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [mapLoaded, setMapLoaded] = useState(false)
 
+  // Load scores
   useEffect(() => {
-    setLoading(true)
     fetch(`/api/spots?date=${date}`)
       .then(r => r.json())
-      .then(d => { setSpots(d.spots || []); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(d => {
+        const map: Record<string, any> = {}
+        for (const s of d.spots || []) map[s.slug] = s
+        setScores(map)
+      })
   }, [date])
 
+  // Init Mapbox once
+  useEffect(() => {
+    if (mapInstanceRef.current) return
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    if (!token) return
+
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css'
+    document.head.appendChild(link)
+
+    const script = document.createElement('script')
+    script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'
+    script.onload = () => {
+      const mapboxgl = (window as any).mapboxgl
+      mapboxgl.accessToken = token
+
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [-122.65, 37.85],
+        zoom: 9.5,
+        minZoom: 8,
+        maxZoom: 15,
+        pitchWithRotate: false,
+      })
+
+      map.on('load', () => {
+        mapInstanceRef.current = map
+        setMapLoaded(true)
+      })
+    }
+    document.head.appendChild(script)
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        setMapLoaded(false)
+      }
+    }
+  }, [])
+
+  // Add/update markers when map loads or scores change
+  useEffect(() => {
+    if (!mapLoaded || !mapInstanceRef.current) return
+    const mapboxgl = (window as any).mapboxgl
+
+    // Remove old markers
+    markersRef.current.forEach(m => m.remove())
+    markersRef.current = []
+
+    SPOTS_STATIC.forEach(spot => {
+      const data = scores[spot.slug]
+      const call = data?.call || 'killed'
+      const score = Math.round(parseFloat(data?.score) || 0)
+      const color = callColor(call)
+      const isGauge = data?.gauge_only
+
+      // Custom marker element
+      const el = document.createElement('div')
+      el.style.cssText = `
+        width: ${isGauge ? 10 : 36}px;
+        height: ${isGauge ? 10 : 36}px;
+        background: ${isGauge ? '#1e3a5f' : color};
+        border-radius: 50%;
+        border: 2px solid ${isGauge ? '#1e3a5f' : 'rgba(255,255,255,0.3)'};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(0,0,0,0.85);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        transition: transform 0.15s;
+      `
+      if (!isGauge && score > 0) el.textContent = String(score)
+
+      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.15)' })
+      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)' })
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setSelected({ ...spot, ...data, score })
+      })
+
+      el.addEventListener('dblclick', (e) => {
+        e.stopPropagation()
+        onSpotSelect(spot.slug)
+      })
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([spot.lon, spot.lat])
+        .addTo(mapInstanceRef.current)
+
+      markersRef.current.push(marker)
+    })
+
+    // Click anywhere on map to close popup
+    mapInstanceRef.current.on('click', () => setSelected(null))
+  }, [mapLoaded, scores])
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-hidden px-4 pt-3">
-        <div className="rounded-2xl overflow-hidden"
-             style={{ background: '#060e18', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-          {loading && (
-            <div className="flex items-center justify-center h-48">
-              <span className="text-sm" style={{ color: 'var(--text-dim)' }}>Loading…</span>
-            </div>
-          )}
-          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-            <rect width={W} height={H} fill="#060e18" />
+    <div className="flex flex-col h-full relative">
+      {/* Map */}
+      <div ref={mapRef} className="flex-1" style={{ minHeight: 0 }} />
 
-            {/* Ocean fill west of coast */}
-            <rect x="0" y="0" width="220" height={H} fill="#08141e" opacity="0.6" />
-
-            {/* Rough coastline */}
-            <path
-              d="M 310,0 C 305,30 308,60 300,90 C 292,120 295,150 285,180 C 275,210 278,240 268,270 C 258,300 262,330 252,360 C 242,390 248,420 238,450 C 228,480 232,500 222,500"
-              stroke="#0d2540" strokeWidth="28" fill="none" />
-            <path
-              d="M 310,0 C 305,30 308,60 300,90 C 292,120 295,150 285,180 C 275,210 278,240 268,270 C 258,300 262,330 252,360 C 242,390 248,420 238,450 C 228,480 232,500 222,500"
-              stroke="#0a1e30" strokeWidth="12" fill="none" />
-
-            {/* Point Reyes headland */}
-            <ellipse cx="35" cy="140" rx="55" ry="30" fill="#08141e" opacity="0.8" />
-
-            {/* Region labels */}
-            <text x="12" y="45" fill="rgba(255,255,255,0.12)" fontSize="8" fontWeight="600" letterSpacing="1.5">MARIN</text>
-            <text x="12" y="290" fill="rgba(255,255,255,0.12)" fontSize="8" fontWeight="600" letterSpacing="1.5">SAN FRANCISCO</text>
-            <text x="12" y="420" fill="rgba(255,255,255,0.12)" fontSize="8" fontWeight="600" letterSpacing="1.5">SAN MATEO</text>
-
-            {/* Grid */}
-            {[0.2,0.4,0.6,0.8].map(f => (
-              <line key={f} x1={0} y1={H*f} x2={W} y2={H*f}
-                    stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-            ))}
-
-            {/* Spot pins */}
-            {spots.map((s: any) => {
-              const { x, y } = toSVG(parseFloat(s.latitude), parseFloat(s.longitude))
-              const color = pinColor(s.call)
-              const isSelected = selected?.slug === s.slug
-              const score = Math.round(s.score || 0)
-              const isGauge = s.gauge_only
-
-              return (
-                <g key={s.slug} onClick={() => setSelected(selected?.slug === s.slug ? null : s)}
-                   style={{ cursor: 'pointer' }}>
-                  {s.call === 'go' && !isGauge && (
-                    <circle cx={x} cy={y} r="16" fill="none"
-                            stroke="#22c55e" strokeWidth="0.5" opacity="0.25" />
-                  )}
-                  <circle cx={x} cy={y} r={isSelected ? 12 : 9}
-                          fill={color}
-                          opacity={isGauge ? 0.25 : isSelected ? 1 : 0.85}
-                          stroke={isSelected ? '#fff' : 'rgba(0,0,0,0.5)'}
-                          strokeWidth={isSelected ? 1.5 : 0.5} />
-                  {score > 0 && !isGauge && (
-                    <text x={x} y={y + 3.5} textAnchor="middle"
-                          fill="rgba(0,0,0,0.85)" fontSize="7" fontWeight="700">
-                      {score}
-                    </text>
-                  )}
-                  <text x={x + 13} y={y + 4}
-                        fill={isSelected ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)'}
-                        fontSize="7.5" fontWeight={isSelected ? '600' : '400'}>
-                    {s.spot_name
-                      .replace(' State Beach','')
-                      .replace(' Beach','')
-                      .replace(' Jetty','')
-                      .replace('Ocean ','OB ')
-                      .replace('Point Reyes','Pt Reyes')}
-                  </text>
-                </g>
-              )
-            })}
-          </svg>
-        </div>
-      </div>
-
-      {/* Selected spot card */}
+      {/* Popup */}
       {selected && (
-        <div className="px-4 py-3 flex-shrink-0">
-          <div className="rounded-2xl p-4"
-               style={{ background: 'rgba(13,26,42,0.98)', border: '0.5px solid rgba(255,255,255,0.12)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="text-base font-semibold" style={{ color: 'var(--text-bright)' }}>
-                  {selected.spot_name}
-                </div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
-                  {selected.region} · {selected.drive_minutes_estimate}min drive
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-light" style={{ color: scoreColor(selected.score || 0) }}>
-                  {Math.round(selected.score) || '—'}
-                </div>
-                <div className="text-[10px] font-bold uppercase" style={{ color: scoreColor(selected.score || 0) }}>
-                  {selected.call?.toUpperCase()}
-                </div>
+        <div
+          className="absolute bottom-20 left-4 right-4 rounded-2xl p-4 z-10"
+          style={{ background: 'rgba(10,18,30,0.97)', border: '0.5px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(20px)' }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-base font-semibold" style={{ color: 'var(--text-bright)' }}>{selected.name}</div>
+              <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                {selected.region} · {selected.drive_minutes_estimate}min
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { onSpotSelect(selected.slug); setSelected(null) }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--teal)', border: '0.5px solid rgba(6,182,212,0.3)' }}>
-                Full breakdown →
-              </button>
-              <button
-                onClick={() => setSelected(null)}
-                className="px-4 py-2.5 rounded-xl text-sm"
-                style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-dim)' }}>
-                ✕
-              </button>
+            <div className="text-right">
+              <div className="text-2xl font-light" style={{ color: callColor(selected.call || 'killed') }}>
+                {selected.score || '—'}
+              </div>
+              <div className="text-[10px] font-bold uppercase" style={{ color: callColor(selected.call || 'killed') }}>
+                {(selected.call || 'killed').toUpperCase()}
+              </div>
             </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { onSpotSelect(selected.slug); setSelected(null) }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(6,182,212,0.15)', color: 'var(--teal)', border: '0.5px solid rgba(6,182,212,0.3)' }}>
+              Full breakdown →
+            </button>
+            <button
+              onClick={() => setSelected(null)}
+              className="px-4 py-2.5 rounded-xl text-sm"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-dim)' }}>
+              ✕
+            </button>
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="px-4 pb-3 flex gap-4 flex-shrink-0">
-        {[['#22c55e','Go'],['#f59e0b','Consider'],['#334155','No go']].map(([c,l]) => (
+      <div className="absolute top-3 left-3 rounded-xl px-3 py-2 flex gap-3 z-10"
+           style={{ background: 'rgba(10,18,30,0.85)', backdropFilter: 'blur(10px)' }}>
+        {[['#22c55e','Go'],['#f59e0b','Consider'],['#475569','No go']].map(([c,l]) => (
           <div key={l} className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c }} />
-            <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>{l}</span>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />
+            <span className="text-[10px] font-medium" style={{ color: 'var(--text-dim)' }}>{l}</span>
           </div>
         ))}
+      </div>
+
+      <div className="text-[10px] text-center pb-2 pt-1" style={{ color: 'var(--text-dim)' }}>
+        Tap pin for details · Double-tap for full breakdown
       </div>
     </div>
   )
