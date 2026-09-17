@@ -129,10 +129,10 @@ function SpotCard({ f, onClick }: { f: any; onClick: () => void }) {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-2 mb-3">
           {[
-            { label: 'Height', val: f.swell_angle_used_deg !== null ? `${(f.composite_score > 0 ? (f.min_working_height_ft || 0) : 0).toFixed(1)}ft` : '—' },
-            { label: 'Period', val: f.period_used_s ? `${f.period_used_s}s` : '—' },
-            { label: 'Tide',   val: f.tide_ft_at_window !== null ? `${f.tide_ft_at_window?.toFixed(1)}ft` : '—' },
-            { label: 'Wind',   val: f.onshore_wind_kt !== null ? `${f.onshore_wind_kt?.toFixed(1)}kt` : '—' },
+            { label: 'Score',  val: `${Math.round(f.composite_score)}/100` },
+            { label: 'Period', val: f.period_used_s ? `${parseFloat(f.period_used_s).toFixed(1)}s` : '—' },
+            { label: 'Tide',   val: f.tide_ft_at_window !== null ? `${parseFloat(f.tide_ft_at_window).toFixed(1)}ft` : '—' },
+            { label: 'Wind',   val: f.onshore_wind_kt !== null ? `${parseFloat(f.onshore_wind_kt).toFixed(1)}kt` : '—' },
           ].map(s => (
             <div key={s.label} className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
               <div className="text-[9px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-dim)' }}>{s.label}</div>
