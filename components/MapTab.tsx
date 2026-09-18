@@ -36,10 +36,66 @@ export default function MapTab({ date, onSpotSelect }: {
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapReady = useRef(false)
+  const mapInstance = useRef<any>(null)
   const markers = useRef<any[]>([])
   const [scores, setScores] = useState<Record<string, any>>({})
   const [selected, setSelected] = useState<any>(null)
   const [status, setStatus] = useState('Loading map...')
+
+  // fetch scores
+  useEffect(() => {
+    fetch(`/api/spots?date=${date}`)
+      .then(r => r.json())
+      .then(d => {
+        const m: Record<string, any> = {}
+        for (const s of d.spots || []) m[s.slug] = s
+        setScores(m)
+      })
+      .catch(() => {})
+  }, [date])
+
+  // redraw markers whenever scores update
+  useEffect(() => {
+    if (!mapInstance.current) return
+    const mgl = (window as any).mapboxgl
+    if (!mgl) return
+
+    markers.current.forEach(m => m.remove())
+    markers.current = []
+
+    SPOTS.forEach(spot => {
+      const data = scores[spot.slug] || {}
+      const call = data.call || 'killed'
+      const score = Math.round(parseFloat(data.score) || 0)
+      const isGauge = data.gauge_only
+      const color = pinColor(call)
+
+      const el = document.createElement('div')
+      Object.assign(el.style, {
+        width: isGauge ? '10px' : '34px',
+        height: isGauge ? '10px' : '34px',
+        background: color,
+        borderRadius: '50%',
+        border: '2px solid rgba(255,255,255,0.25)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: 'rgba(0,0,0,0.85)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        opacity: isGauge ? '0.3' : '1',
+      })
+      if (!isGauge && score > 0) el.textContent = String(score)
+      el.onclick = (e) => { e.stopPropagation(); setSelected({ ...spot, ...data, score }) }
+
+      const marker = new mgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([spot.lon, spot.lat])
+        .addTo(mapInstance.current)
+      markers.current.push(marker)
+    })
+  }, [scores])
 
   // fetch scores
   useEffect(() => {
@@ -83,46 +139,16 @@ export default function MapTab({ date, onSpotSelect }: {
       const map = new mgl.Map({
         container: mapRef.current,
         style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-122.65, 37.85],
-        zoom: 9.5,
+        center: [-122.72, 37.87],
+        zoom: 8.8,
       })
 
       map.on('load', () => {
         setStatus('')
+        mapInstance.current = map
         map.on('click', () => setSelected(null))
-
-        SPOTS.forEach(spot => {
-          const data = scores[spot.slug] || {}
-          const call = data.call || 'killed'
-          const score = Math.round(parseFloat(data.score) || 0)
-          const isGauge = data.gauge_only
-          const color = pinColor(call)
-
-          const el = document.createElement('div')
-          Object.assign(el.style, {
-            width: isGauge ? '10px' : '34px',
-            height: isGauge ? '10px' : '34px',
-            background: color,
-            borderRadius: '50%',
-            border: '2px solid rgba(255,255,255,0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            fontSize: '10px',
-            fontWeight: '700',
-            color: 'rgba(0,0,0,0.85)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-            opacity: isGauge ? '0.3' : '1',
-          })
-          if (!isGauge && score > 0) el.textContent = String(score)
-          el.onclick = (e) => { e.stopPropagation(); setSelected({ ...spot, ...data, score }) }
-
-          new mgl.Marker({ element: el, anchor: 'center' })
-            .setLngLat([spot.lon, spot.lat])
-            .addTo(map)
-          markers.current.push(el)
-        })
+        // trigger marker draw now that map is ready
+        setScores(s => ({ ...s }))
       })
     }
 
