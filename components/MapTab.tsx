@@ -139,8 +139,8 @@ export default function MapTab({ date, onSpotSelect }: {
       const map = new mgl.Map({
         container: mapRef.current,
         style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-122.72, 37.87],
-        zoom: 8.8,
+        center: [-122.78, 37.87],
+        zoom: 8.2,
       })
 
       map.on('load', () => {
@@ -170,7 +170,7 @@ export default function MapTab({ date, onSpotSelect }: {
         </div>
       )}
 
-      <div ref={mapRef} style={{ flex: 1, minHeight: 0, height: '480px' }} />
+      <div ref={mapRef} style={{ flex: 1, minHeight: 0, height: '560px' }} />
 
       {selected && (
         <div style={{
