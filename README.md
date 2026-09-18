@@ -26,3 +26,4 @@ cp .env.example .env.local
 npm install
 npm run dev
 ```
+# mapbox token refresh Fri Sep 18 12:15:52 PDT 2026
