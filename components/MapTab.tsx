@@ -137,7 +137,7 @@ export default function MapTab({ date, onSpotSelect }: {
   }, [scores])
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)' }}>
       {status && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5, color: '#4a6a85', fontSize: 14 }}>
           {status}
