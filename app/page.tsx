@@ -26,20 +26,40 @@ const TABS = [
 ]
 
 export default function Home() {
-  const [tab, setTab]         = useState('ranked')
-  const [date, setDate]       = useState(todayStr)
+  const [tab, setTab]           = useState('ranked')
+  const [date, setDate]         = useState('')
+  const [days, setDays]         = useState<string[]>([])
+  const [time, setTime]         = useState('')
   const [spotSlug, setSpotSlug] = useState<string | null>(null)
-  const days = nextNDays(7)
+  const [mounted, setMounted]   = useState(false)
 
-  const dayLabel = (d: string) => {
-    const dt = new Date(d + 'T12:00:00')
-    return dt.toLocaleDateString('en-US', { weekday: 'short' })
-  }
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    setDate(today)
+    setDays(Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() + i)
+      return d.toISOString().slice(0, 10)
+    }))
+    setTime(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
+    setMounted(true)
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleSpotSelect = (slug: string) => {
     setSpotSlug(slug)
     setTab('spot')
   }
+
+  if (!mounted) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div style={{ color: 'var(--teal)', fontSize: 28 }}>〜</div>
+    </div>
+  )
+
+  const todayStr = days[0] || ''
 
   return (
     <div className="flex flex-col min-h-screen pb-[76px]">
@@ -47,7 +67,7 @@ export default function Home() {
       {/* Status bar */}
       <div className="flex items-center justify-between px-6 h-11 text-xs font-medium"
            style={{ color: 'var(--text-dim)' }}>
-        <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+        <span>{time}</span>
         <span style={{ color: 'var(--teal)', fontWeight: 600 }}>SwellMind</span>
         <span>Marin, CA</span>
       </div>
@@ -68,7 +88,7 @@ export default function Home() {
             >
               <span className="text-[10px] font-semibold uppercase tracking-wide"
                     style={{ color: date === d ? 'var(--teal)' : 'var(--text-dim)' }}>
-                {d === todayStr() ? 'Today' : dayLabel(d)}
+                {d === todayStr ? 'Today' : new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
               <DayScore date={d} active={date === d} />
             </button>
