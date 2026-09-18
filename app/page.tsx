@@ -98,9 +98,9 @@ export default function Home() {
 
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
-        {tab === 'ranked' && <RankedTab date={date} onSpotSelect={handleSpotSelect} />}
-        {tab === 'map'    && <MapTab    date={date} onSpotSelect={handleSpotSelect} />}
-        {tab === 'spot'   && <SpotTab   date={date} slug={spotSlug} onBack={() => setTab('ranked')} />}
+        {date && tab === 'ranked' && <RankedTab date={date} onSpotSelect={handleSpotSelect} />}
+        {date && tab === 'map'    && <MapTab    date={date} onSpotSelect={handleSpotSelect} />}
+        {date && tab === 'spot'   && <SpotTab   date={date} slug={spotSlug} onBack={() => setTab('ranked')} />}
         {tab === 'log'    && <LogTab />}
       </div>
 
