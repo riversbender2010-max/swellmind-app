@@ -51,8 +51,9 @@ function MapInner({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: s
   }, [date])
 
   useEffect(() => {
-    if (mapInstanceRef.current || !mapRef.current) return
+    if (!mapInstanceRef.current || !mapRef.current) return
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+    console.log('Mapbox token:', token ? `${token.slice(0,8)}...` : 'UNDEFINED')
     if (!token) { console.error('NEXT_PUBLIC_MAPBOX_TOKEN not set'); return }
 
     if (!document.querySelector('link[href*="mapbox-gl"]')) {
