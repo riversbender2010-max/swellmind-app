@@ -53,12 +53,8 @@ function MapInner({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: s
   useEffect(() => {
     if (mapInstanceRef.current || !mapRef.current) return
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    if (!token) {
-      console.error('NEXT_PUBLIC_MAPBOX_TOKEN not set')
-      return
-    }
+    if (!token) { console.error('NEXT_PUBLIC_MAPBOX_TOKEN not set'); return }
 
-    // Load CSS
     if (!document.querySelector('link[href*="mapbox-gl"]')) {
       const link = document.createElement('link')
       link.rel = 'stylesheet'
@@ -66,23 +62,10 @@ function MapInner({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: s
       document.head.appendChild(link)
     }
 
-    // Load JS
-    if ((window as any).mapboxgl) {
-      initMap(token)
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'
-    script.onload = () => initMap(token)
-    script.onerror = () => console.error('Failed to load Mapbox GL JS')
-    document.head.appendChild(script)
-
     function initMap(tok: string) {
       if (!mapRef.current || mapInstanceRef.current) return
       const mapboxgl = (window as any).mapboxgl
       mapboxgl.accessToken = tok
-
       const map = new mapboxgl.Map({
         container: mapRef.current,
         style: 'mapbox://styles/mapbox/dark-v11',
@@ -91,13 +74,17 @@ function MapInner({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: s
         minZoom: 7,
         maxZoom: 15,
       })
-
-      map.on('load', () => {
-        mapInstanceRef.current = map
-        setMapLoaded(true)
-      })
-
+      map.on('load', () => { mapInstanceRef.current = map; setMapLoaded(true) })
       map.on('click', () => setSelected(null))
+    }
+
+    if ((window as any).mapboxgl) {
+      initMap(token)
+    } else {
+      const script = document.createElement('script')
+      script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'
+      script.onload = () => initMap(token)
+      document.head.appendChild(script)
     }
 
     return () => {
@@ -112,7 +99,6 @@ function MapInner({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: s
   useEffect(() => {
     if (!mapLoaded || !mapInstanceRef.current) return
     const mapboxgl = (window as any).mapboxgl
-
     markersRef.current.forEach(m => m.remove())
     markersRef.current = []
 
@@ -125,40 +111,25 @@ function MapInner({ date, onSpotSelect }: { date: string; onSpotSelect: (slug: s
 
       const el = document.createElement('div')
       el.style.cssText = `
-        width: ${isGauge ? 10 : 34}px;
-        height: ${isGauge ? 10 : 34}px;
-        background: ${color};
-        border-radius: 50%;
-        border: 2px solid rgba(255,255,255,${isGauge ? 0.1 : 0.25});
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(0,0,0,0.85);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-        transition: transform 0.15s ease;
-        opacity: ${isGauge ? 0.3 : 1};
+        width:${isGauge ? 10 : 34}px;height:${isGauge ? 10 : 34}px;
+        background:${color};border-radius:50%;
+        border:2px solid rgba(255,255,255,${isGauge ? 0.1 : 0.25});
+        display:flex;align-items:center;justify-content:center;
+        cursor:pointer;font-size:10px;font-weight:700;
+        color:rgba(0,0,0,0.85);box-shadow:0 2px 8px rgba(0,0,0,0.5);
+        transition:transform 0.15s ease;opacity:${isGauge ? 0.3 : 1};
       `
       if (!isGauge && score > 0) el.textContent = String(score)
-
       el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)' })
       el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)' })
-      el.addEventListener('click', (e) => {
-        e.stopPropagation()
-        setSelected({ ...spot, ...data, score })
-      })
-      el.addEventListener('dblclick', (e) => {
-        e.stopPropagation()
-        onSpotSelect(spot.slug)
-      })
+      el.addEventListener('click', (e) => { e.stopPropagation(); setSelected({ ...spot, ...data, score }) })
+      el.addEventListener('dblclick', (e) => { e.stopPropagation(); onSpotSelect(spot.slug) })
 
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([spot.lon, spot.lat])
-        .addTo(mapInstanceRef.current)
-
-      markersRef.current.push(marker)
+      markersRef.current.push(
+        new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([spot.lon, spot.lat])
+          .addTo(mapInstanceRef.current)
+      )
     })
   }, [mapLoaded, scores, onSpotSelect])
 
@@ -226,32 +197,4 @@ export default function MapTab({ date, onSpotSelect }: { date: string; onSpotSel
     </div>
   )
   return <MapInner date={date} onSpotSelect={onSpotSelect} />
-}
-  { slug: 'ocean_beach_north',  name: 'OB North',       lat: 37.778000, lon: -122.513000 },
-  { slug: 'ocean_beach_middle', name: 'OB Middle',       lat: 37.759900, lon: -122.511100 },
-  { slug: 'ocean_beach_south',  name: 'OB South',        lat: 37.735000, lon: -122.506000 },
-  { slug: 'fort_point',         name: 'Fort Point',      lat: 37.810000, lon: -122.477000 },
-  { slug: 'rodeo_beach',        name: 'Rodeo Beach',     lat: 37.832000, lon: -122.537000 },
-  { slug: 'bolinas_patch',      name: 'Bolinas Patch',   lat: 37.907500, lon: -122.684400 },
-  { slug: 'bolinas_channel',    name: 'Bolinas Channel', lat: 37.905000, lon: -122.687000 },
-  { slug: 'stinson',            name: 'Stinson Beach',   lat: 37.900000, lon: -122.643000 },
-  { slug: 'muir_beach',         name: 'Muir Beach',      lat: 37.860000, lon: -122.577000 },
-  { slug: 'rca',                name: 'RCA',             lat: 37.906000, lon: -122.735000 },
-  { slug: 'dillon_beach',       name: 'Dillon Beach',    lat: 38.250000, lon: -122.965000 },
-  { slug: 'point_reyes_beach',  name: 'Pt Reyes Beach',  lat: 38.050000, lon: -122.960000 },
-  { slug: 'drakes_bay',         name: 'Drakes Bay',      lat: 38.026000, lon: -122.960000 },
-  { slug: 'linda_mar',          name: 'Linda Mar',       lat: 37.598000, lon: -122.503000 },
-  { slug: 'rockaway',           name: 'Rockaway',        lat: 37.607000, lon: -122.494000 },
-  { slug: 'montara',            name: 'Montara',         lat: 37.552000, lon: -122.517000 },
-  { slug: 'princeton_jetty',    name: 'Princeton Jetty', lat: 37.499000, lon: -122.482000 },
-  { slug: 'dunes_francis',      name: 'Dunes/Francis',   lat: 37.464000, lon: -122.443000 },
-  { slug: 'mavericks',          name: 'Mavericks',       lat: 37.495000, lon: -122.500000 },
-]
-
-function callColor(call: string) {
-  if (call === 'go')       return '#22c55e'
-  if (call === 'consider') return '#f59e0b'
-  if (call === 'killed')   return '#475569'
-  if (call === 'gauge')    return '#1e3a5f'
-  return '#475569'
 }
